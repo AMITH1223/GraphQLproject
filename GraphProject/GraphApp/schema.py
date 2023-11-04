@@ -29,16 +29,31 @@ class CreatePost(graphene.Mutation):
         description = graphene.String()
         publish_date = graphene.DateTime()
         author = graphene.String()
-        comment_text = graphene.String()
 
     post = graphene.Field(PostType)
 
-    def mutate(self, info, title, description, publish_date, author,comment_text):
+    def mutate(self, info, title, description, publish_date, author):
         post = Post(title=title, description=description, publish_date=publish_date, author=author)
         post.save()
-        comment = Comment(text=comment_text, author=author, post=post)
-        comment.save()
         return CreatePost(post=post)
+
+class CreateComment(graphene.Mutation):
+    class Arguments:
+        text = graphene.String()
+        author = graphene.String()
+        post_id = graphene.Int()  
+
+    comment = graphene.Field(CommentType)
+
+    def mutate(self, info, text, author, post_id):
+        try:
+            post = Post.objects.get(pk=post_id)
+        except Post.DoesNotExist:
+            raise Exception("Post not found")
+
+        comment = Comment(text=text, author=author, post=post)
+        comment.save()
+        return CreateComment(comment=comment)
 
 class UpdatePost(graphene.Mutation):
     class Arguments:
@@ -79,10 +94,29 @@ class DeletePost(graphene.Mutation):
             success = False
 
         return DeletePost(success=success)
+    
+
+class DeleteComment(graphene.Mutation):
+    class Arguments:
+        id = graphene.Int()
+
+    success = graphene.Boolean()
+
+    def mutate(self, info, id):
+        try:
+            post = Comment.objects.get(pk=id)
+            post.delete()
+            success = True
+        except Post.DoesNotExist:
+            success = False
+
+        return DeleteComment(success=success)
 
 class Mutation(graphene.ObjectType):
     create_post = CreatePost.Field()
+    create_comment = CreateComment.Field()
     update_post = UpdatePost.Field()
     delete_post = DeletePost.Field()
+    delete_comment = DeleteComment.Field() 
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
